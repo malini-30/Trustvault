@@ -3,8 +3,8 @@
 Secure document sharing where the wrong person cannot reach a file, and you can
 prove who did.
 
-- **Live demo:** `https://<your-service>.onrender.com` ← replace after deploying
-  (free instance: the first request after 15 idle minutes takes up to a minute)
+- **Live demo:** [`https://<your-service>.onrender.com` ← replace after deploying
+  (free instance: the first request after 15 idle minutes takes up to a minute)](https://trustvault-bcda.onrender.com/)
 - **Demo video:** `<link>` ← replace
 - **Write-up:** [WRITEUP.md](WRITEUP.md) · **Threat model:** [THREATS.md](THREATS.md) ·
   **AI log:** [PROMPTS.md](PROMPTS.md) · **API:** [docs/API.md](docs/API.md) ·
