@@ -1,0 +1,45 @@
+# Render Blueprint: Dashboard -> New -> Blueprint -> pick this repository.
+# Creates one web service and one Postgres database, wired together.
+databases:
+  - name: trustvault-db
+    databaseName: trustvault
+    user: trustvault
+    # "free" expires 30 days after creation and has no backups. Before judging,
+    # upgrade it in the dashboard (Basic 256 MB) or it will stop working.
+    plan: free
+
+services:
+  - type: web
+    name: trustvault
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # Free instances have no pre-deploy hook, so migrations, demo seed and the
+    # trash purge run at boot. All three are idempotent.
+    startCommand: >-
+      python -m app.migrate && python -m app.seed && python -m app.purge &&
+      gunicorn wsgi:app --workers 2 --threads 2 --timeout 60 --bind 0.0.0.0:$PORT
+      --access-logfile - --access-logformat '%(h)s "%(m)s %(U)s" %(s)s %(b)s %(L)s'
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trustvault-db
+          property: connectionString
+      # Wraps every file's encryption key. Generated once at creation.
+      # COPY IT SOMEWHERE SAFE: if it is lost or changed, stored files are unreadable.
+      - key: MASTER_KEY
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: STORAGE_BACKEND
+        value: db
+      # Optional: an Anthropic API key enables LLM-ranked access suggestions.
+      - key: AI_API_KEY
+        sync: false
