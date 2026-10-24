@@ -3,7 +3,7 @@
 Secure document sharing where the wrong person cannot reach a file, and you can
 prove who did.
 
-- **Live demo:** [https://<your-service>.onrender.com](https://trustvault-bcda.onrender.com/)
+- **Live demo:** [https://trustvault-bcda.onrender.com](https://trustvault-bcda.onrender.com/)
 - **Demo video:** `<link>` ← replace
 - **Write-up:** [WRITEUP.md](WRITEUP.md) · **Threat model:** [THREATS.md](THREATS.md) ·
   **AI log:** [PROMPTS.md](PROMPTS.md) · **API:** [docs/API.md](docs/API.md) ·
