@@ -1,0 +1,6 @@
+Flask>=3.0,<4
+psycopg[binary]>=3.2,<4
+cryptography>=42
+gunicorn>=22
+requests>=2.31          # only used when AI_API_KEY is set
+# boto3>=1.34           # uncomment if STORAGE_BACKEND=s3 (Cloudflare R2 / S3)
