@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.name }} · TrustVault{% endblock %}
+{% block content %}
+{% set is_owner = doc.my_permission == 'owner' %}
+{% set can_edit = doc.my_permission in ('owner', 'edit') %}
+<div class="doc-head">
+  <div>
+    <h1>{{ doc.name }}</h1>
+    <p class="muted">{{ doc.category }} · owned by {{ doc.owner.full_name }} ({{ doc.owner.email }}) · version {{ doc.current_version }} · your access: <span class="badge {{ doc.my_permission }}">{{ doc.my_permission }}</span></p>
+  </div>
+  <form method="post" action="{{ url_for('ui.download', doc_id=doc.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="primary">Download latest</button>
+  </form>
+</div>
+
+{% if new_share %}
+<div class="flash ok share-once">
+  <strong>Share link created.</strong> Copy it now; it is shown only once and is not stored anywhere in readable form.
+  <input class="copy" readonly value="{{ new_share }}">
+</div>
+{% endif %}
+
+<div class="grid">
+<section class="card">
+  <h2>Versions</h2>
+  <table><thead><tr><th>#</th><th>File</th><th>Size</th><th>SHA-256</th><th>By</th><th></th></tr></thead><tbody>
+  {% for v in doc.versions %}
+  <tr><td>v{{ v.version }}</td><td>{{ v.filename }}</td><td>{{ (v.size_bytes / 1024)|round(1) }} KB</td>
+    <td class="mono" title="{{ v.sha256 }}">{{ v.sha256[:12] }}…</td><td>{{ v.created_by_email }}</td>
+    <td><form method="post" action="{{ url_for('ui.download_version', doc_id=doc.id, version=v.version) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="link">Download</button></form></td></tr>
+  {% endfor %}</tbody></table>
+  {% if can_edit %}
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('ui.add_version', doc_id=doc.id) }}" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="file" name="file" required>
+    <button>Upload new version</button>
+  </form>
+  {% endif %}
+</section>
+
+{% if can_edit %}
+<section class="card">
+  <h2>Details</h2>
+  <form method="post" action="{{ url_for('ui.edit_document', doc_id=doc.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Name <input name="name" value="{{ doc.name }}" maxlength="200" required></label>
+    <label>Category <select name="category">{% for c in categories %}<option {% if c == doc.category %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+    <button>Save</button>
+  </form>
+  {% if is_owner %}
+  <form method="post" action="{{ url_for('ui.delete', doc_id=doc.id) }}" class="danger-zone">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="danger">Move to trash</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if is_owner %}
+<section class="card">
+  <h2>People with access</h2>
+  {% if grants %}
+  <table><thead><tr><th>Person</th><th>Access</th><th>How</th><th></th></tr></thead><tbody>
+  {% for gr in grants %}
+  <tr><td>{{ gr.full_name }}<div class="muted">{{ gr.email }}{% if not gr.is_active %} · deactivated{% endif %}</div></td>
+    <td><span class="badge {{ gr.permission }}">{{ gr.permission }}</span></td>
+    <td class="muted">{{ 'AI suggestion, confirmed by you' if gr.granted_via == 'ai_suggestion' else 'manual' }}</td>
+    <td><form method="post" action="{{ url_for('ui.revoke_grant', doc_id=doc.id, user_id=gr.user_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger small">Revoke</button></form></td></tr>
+  {% endfor %}</tbody></table>
+  {% else %}<p class="muted">Only you can see this document.</p>{% endif %}
+  <form method="post" action="{{ url_for('ui.add_grant', doc_id=doc.id) }}" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="email" name="email" placeholder="colleague@company.com" required>
+    <select name="permission"><option value="read">Read</option><option value="edit">Edit</option></select>
+    <button>Grant</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Suggested people <span class="muted small">(AI-assisted; nothing is shared until you accept)</span></h2>
+  {% for s in suggestions %}
+  <div class="suggestion">
+    <div><strong>{{ s.full_name }}</strong> <span class="muted">{{ s.email }}</span> · {{ s.suggested_permission }}<div class="muted small">{{ s.reason }} ({{ s.source }})</div></div>
+    <form method="post" action="{{ url_for('ui.accept_suggestion', doc_id=doc.id, suggestion_id=s.id) }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <select name="permission"><option value="read" {% if s.suggested_permission == 'read' %}selected{% endif %}>read</option><option value="edit" {% if s.suggested_permission == 'edit' %}selected{% endif %}>edit</option></select>
+      <button class="small">Accept</button></form>
+    <form method="post" action="{{ url_for('ui.reject_suggestion', doc_id=doc.id, suggestion_id=s.id) }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="link small">Dismiss</button></form>
+  </div>
+  {% else %}<p class="muted">No pending suggestions.</p>{% endfor %}
+  <form method="post" action="{{ url_for('ui.suggest', doc_id=doc.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button>Suggest who should see this</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>External share links</h2>
+  {% if shares %}
+  <table><thead><tr><th>Label</th><th>Expires</th><th>Downloads</th><th>Status</th><th></th></tr></thead><tbody>
+  {% for s in shares %}
+  <tr><td>{{ s.label or '—' }}</td><td>{{ s.expires_at.strftime('%Y-%m-%d %H:%M') }} UTC</td>
+    <td>{{ s.download_count }}{% if s.max_downloads %} / {{ s.max_downloads }}{% endif %}</td>
+    <td>{% if s.revoked_at %}revoked{% else %}active (until expiry){% endif %}</td>
+    <td>{% if not s.revoked_at %}<form method="post" action="{{ url_for('ui.revoke_share', doc_id=doc.id, share_id=s.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger small">Revoke</button></form>{% endif %}</td></tr>
+  {% endfor %}</tbody></table>
+  {% endif %}
+  <form method="post" action="{{ url_for('ui.add_share', doc_id=doc.id) }}" class="row">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input name="label" placeholder="Label, e.g. Acme legal" maxlength="120">
+    <label class="small">Hours <input type="number" name="expires_hours" value="24" min="1" max="{{ config.TV.SHARE_MAX_HOURS }}"></label>
+    <label class="small">Max downloads <input type="number" name="max_downloads" min="1" max="1000" placeholder="∞"></label>
+    <button>Create link</button>
+  </form>
+</section>
+{% endif %}
+</div>
+{% endblock %}

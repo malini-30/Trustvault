@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="eyebrow">Workspace</p>
+    <h1>Documents</h1>
+    <p class="page-description">Browse the files you own or have permission to access.</p>
+  </div>
+  {% if current_user.role == 'owner' %}<a class="button-link" href="{{ url_for('ui.upload') }}">Upload document</a>{% endif %}
+</div>
+<section class="content-section">
+  <div class="section-heading">
+    <div><h2>Find a document</h2><p class="muted">Use one or more filters to narrow the list.</p></div>
+  </div>
+<form class="search" method="get" action="{{ url_for('ui.documents') }}">
+  <input name="q" placeholder="Name contains…" value="{{ args.get('q', '') }}" maxlength="200">
+  <input name="owner" placeholder="Owner name or e-mail" value="{{ args.get('owner', '') }}" maxlength="200">
+  <select name="category"><option value="">Any category</option>
+    {% for c in categories %}<option {% if args.get('category') == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+  </select>
+  <label class="small">From <input type="date" name="from" value="{{ args.get('from', '') }}"></label>
+  <label class="small">To <input type="date" name="to" value="{{ args.get('to', '') }}"></label>
+  <select name="scope">
+    <option value="all">All I can see</option>
+    <option value="mine" {% if args.get('scope') == 'mine' %}selected{% endif %}>Mine</option>
+    <option value="shared" {% if args.get('scope') == 'shared' %}selected{% endif %}>Shared with me</option>
+  </select>
+  <button>Search</button>
+</form>
+</section>
+{% if result["items"] %}
+<section class="content-section results-section">
+<div class="section-heading"><div><h2>Available documents</h2><p class="muted">Only documents authorized for your account are shown.</p></div></div>
+<div class="table-wrap"><table>
+  <thead><tr><th>Name</th><th>Category</th><th>Owner</th><th>Your access</th><th>Version</th><th>Updated</th></tr></thead>
+  <tbody>
+  {% for d in result["items"] %}
+    <tr>
+      <td><a href="{{ url_for('ui.document', doc_id=d.id) }}">{{ d.name }}</a></td>
+      <td>{{ d.category }}</td>
+      <td>{{ d.owner_name }}<div class="muted">{{ d.owner_email }}</div></td>
+      <td><span class="badge {{ d.my_permission }}">{{ d.my_permission }}</span></td>
+      <td>v{{ d.current_version }}</td>
+      <td>{{ d.updated_at.strftime('%Y-%m-%d %H:%M') }} UTC</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% if result.has_more %}<p><a href="?{{ request.query_string.decode() }}&page={{ result.page + 1 }}">Next page</a></p>{% endif %}
+</section>
+{% else %}
+<section class="empty-state"><h2>No documents found</h2><p class="muted">No documents match your filters, or you have not been granted access to any documents.</p></section>
+{% endif %}
+{% endblock %}
